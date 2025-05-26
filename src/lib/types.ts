@@ -159,6 +159,12 @@ export interface UpdateContactRequest {
   email_address?: string
 }
 
+export interface UpdateProfileRequest {
+  first_name?: string
+  last_name?: string
+  email?: string
+}
+
 // API Response wrapper
 export interface ApiResponse<T = any> {
   success: boolean

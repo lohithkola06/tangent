@@ -9,6 +9,7 @@ import {
   CaseData, 
   CreateOrganizationRequest, 
   CreateCaseRequest, 
+  UpdateProfileRequest,
   ApiResponse 
 } from './types'
 
@@ -32,6 +33,7 @@ class ApiClient {
         'Content-Type': 'application/json',
         ...options.headers,
       },
+      credentials: 'include', // Include cookies for authentication
       ...options,
     }
 
@@ -85,6 +87,22 @@ class ApiClient {
     }
   }
 
+  async updatePassword(data: { currentPassword: string; newPassword: string }): Promise<{ success: boolean; message: string }> {
+    const response = await this.request<{ success: boolean; message: string }>('/auth/update-password', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+    return response.data!
+  }
+
+  async updateProfile(data: UpdateProfileRequest): Promise<{ success: boolean; message: string; user: UserProfile }> {
+    const response = await this.request<{ success: boolean; message: string; user: UserProfile }>('/auth/update-profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+    return response.data!
+  }
+
   // Employer endpoints
   async getEmployer(): Promise<EmployerData | null> {
     const response = await this.request<EmployerData>('/employer')
@@ -109,6 +127,30 @@ class ApiClient {
       finances: FinancialData | null
       contact: ContactData | null
     }>('/employer/details')
+    return response.data!
+  }
+
+  async updateBusinessInfo(data: Partial<EmployerData>): Promise<{ success: boolean; message: string }> {
+    const response = await this.request<{ success: boolean; message: string }>('/employer/update?type=business', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+    return response.data!
+  }
+
+  async updateFinancialInfo(data: Partial<FinancialData>): Promise<{ success: boolean; message: string }> {
+    const response = await this.request<{ success: boolean; message: string }>('/employer/update?type=financial', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+    return response.data!
+  }
+
+  async updateContactInfo(data: Partial<ContactData>): Promise<{ success: boolean; message: string }> {
+    const response = await this.request<{ success: boolean; message: string }>('/employer/update?type=contact', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
     return response.data!
   }
 

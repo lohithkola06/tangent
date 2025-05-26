@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Building, Users, FileText, Plus, Settings } from 'lucide-react'
+import { Building, Users, FileText, Plus } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
 import { EmployerData, CaseData } from '@/lib/types'
 import { AddCaseForm } from './add-case-form-new'
@@ -135,10 +135,6 @@ export function EmployerDashboard() {
               <Plus className="w-4 h-4 mr-2" />
               Add Case
             </Button>
-            <Button variant="outline">
-              <Settings className="w-4 h-4 mr-2" />
-              Settings
-            </Button>
           </div>
         </div>
 
@@ -199,10 +195,10 @@ export function EmployerDashboard() {
         </CardContent>
       </Card>
 
-      {/* Add Case Modal */}
+      {/* Add Case Overlay */}
       {showAddCase && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-start justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mt-8 mb-8">
             <AddCaseForm 
               onSuccess={handleCaseAdded}
               onCancel={() => setShowAddCase(false)}
