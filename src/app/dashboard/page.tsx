@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
-import { EmployerDashboard } from '@/components/dashboard/employer/employer-dashboard-new'
+import { EmployerDashboard } from '@/components/dashboard/employer/employer-dashboard'
 import { apiClient } from '@/lib/api-client'
 import { UserProfile } from '@/lib/types'
 
@@ -50,7 +50,7 @@ export default function DashboardPage() {
   // Route to appropriate dashboard based on user role
   switch (user.role) {
     case 'employer':
-      return <EmployerDashboard />
+      return <EmployerDashboard user={user} userProfile={user} />
     case 'employee':
       return (
         <DashboardLayout>

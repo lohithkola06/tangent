@@ -9,7 +9,8 @@ import { Settings } from "./settings"
 import { UserProfileMenu } from "../user-profile-menu"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Building, Users, FileText, Plus, Loader2 } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Building, Users, FileText, Plus, Loader2, AlertTriangle, Settings as SettingsIcon } from "lucide-react"
 
 interface EmployerDashboardProps {
   user: any
@@ -28,16 +29,44 @@ interface EmployerData {
   total_us_employees: number
   telephone_number: string | null
   nature_of_business: string
+  // I-129 specific fields
+  naics_code: string | null
+  country_of_incorporation: string | null
+  state_of_incorporation: string | null
+  is_individual_petitioner: boolean | null
+  ssn_individual_petitioner: string | null
   created_at: string
   updated_at: string
 }
 
+interface FinancialData {
+  id: string
+  employer_id: string
+  gross_annual_income: number
+  net_annual_income: number
+  financial_documents_url: string
+}
+
+interface ContactData {
+  id: string
+  employer_id: string
+  first_name: string
+  last_name: string
+  middle_name: string | null
+  job_title: string
+  telephone_number: string
+  email_address: string
+}
+
 export function EmployerDashboard({ user, userProfile }: EmployerDashboardProps) {
   const [employerData, setEmployerData] = useState<EmployerData | null>(null)
+  const [financialData, setFinancialData] = useState<FinancialData | null>(null)
+  const [contactData, setContactData] = useState<ContactData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showOrganizationForm, setShowOrganizationForm] = useState(false)
   const [currentView, setCurrentView] = useState<'dashboard' | 'add-case' | 'settings'>('dashboard')
   const [caseStats, setCaseStats] = useState({ active: 0, total: 0 })
+  const [isProfileIncomplete, setIsProfileIncomplete] = useState(false)
 
   useEffect(() => {
     checkEmployerData()
@@ -68,6 +97,9 @@ export function EmployerDashboard({ user, userProfile }: EmployerDashboardProps)
       if (!data) {
         setShowOrganizationForm(true)
       } else {
+        // Load related data and check completeness
+        await loadRelatedData(data.id)
+        checkProfileCompleteness(data)
         // Load case statistics
         loadCaseStats(data.id)
       }
@@ -76,6 +108,65 @@ export function EmployerDashboard({ user, userProfile }: EmployerDashboardProps)
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const loadRelatedData = async (employerId: string) => {
+    try {
+      const supabase = createClient()
+
+      // Load financial data
+      const { data: finances, error: financesError } = await supabase
+        .from('employer_finances')
+        .select('*')
+        .eq('employer_id', employerId)
+        .single()
+
+      if (!financesError) {
+        setFinancialData(finances)
+      }
+
+      // Load contact data
+      const { data: contact, error: contactError } = await supabase
+        .from('employer_contacts')
+        .select('*')
+        .eq('employer_id', employerId)
+        .single()
+
+      if (!contactError) {
+        setContactData(contact)
+      }
+    } catch (error) {
+      console.error('Error loading related data:', error)
+    }
+  }
+
+  const checkProfileCompleteness = (employer: EmployerData) => {
+    // Check if essential I-129 fields are missing
+    const missingFields = []
+
+    if (!employer.country_of_incorporation) {
+      missingFields.push('Country of Incorporation')
+    }
+
+    if (employer.country_of_incorporation === 'United States' && !employer.state_of_incorporation) {
+      missingFields.push('State of Incorporation')
+    }
+
+    if (employer.is_individual_petitioner && !employer.ssn_individual_petitioner) {
+      missingFields.push('SSN for Individual Petitioner')
+    }
+
+    // Check if financial data exists
+    if (!financialData) {
+      missingFields.push('Financial Information')
+    }
+
+    // Check if contact data exists
+    if (!contactData) {
+      missingFields.push('Contact Information')
+    }
+
+    setIsProfileIncomplete(missingFields.length > 0)
   }
 
   const loadCaseStats = async (employerId: string) => {
@@ -128,6 +219,8 @@ export function EmployerDashboard({ user, userProfile }: EmployerDashboardProps)
 
   const handleBackToDashboard = () => {
     setCurrentView('dashboard')
+    // Refresh data when coming back from settings
+    checkEmployerData()
   }
 
   if (isLoading) {
@@ -204,17 +297,44 @@ export function EmployerDashboard({ user, userProfile }: EmployerDashboardProps)
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Quick Stats */}
+        {/* Profile Completion Alert */}
+        {isProfileIncomplete && (
+          <Alert className="mb-6 border-amber-200 bg-amber-50">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-800">
+              <div className="flex items-center justify-between">
+                <div>
+                  <strong>Complete your organization profile</strong>
+                  <p className="mt-1">
+                    Your profile is missing some information required for H1-B petitions. 
+                    Complete your profile to ensure smooth petition processing.
+                  </p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleSettings}
+                  className="ml-4 border-amber-300 text-amber-700 hover:bg-amber-100"
+                >
+                  <SettingsIcon className="h-4 w-4 mr-2" />
+                  Complete Profile
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Dashboard Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Petitions</CardTitle>
+              <CardTitle className="text-sm font-medium">Active Cases</CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{caseStats.active}</div>
               <p className="text-xs text-muted-foreground">
-                {caseStats.active === 0 ? 'No active petitions yet' : 'Active petitions in progress'}
+                Currently in progress
               </p>
             </CardContent>
           </Card>
@@ -227,20 +347,20 @@ export function EmployerDashboard({ user, userProfile }: EmployerDashboardProps)
             <CardContent>
               <div className="text-2xl font-bold">{caseStats.total}</div>
               <p className="text-xs text-muted-foreground">
-                {caseStats.total === 0 ? 'No cases created yet' : 'Total H1-B petition cases'}
+                All time cases
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total US Employees</CardTitle>
+              <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
               <Building className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{employerData.total_us_employees}</div>
+              <div className="text-2xl font-bold">--</div>
               <p className="text-xs text-muted-foreground">
-                As of {new Date(employerData.updated_at).toLocaleDateString()}
+                Coming soon
               </p>
             </CardContent>
           </Card>
@@ -283,40 +403,51 @@ export function EmployerDashboard({ user, userProfile }: EmployerDashboardProps)
                 <label className="text-sm font-medium text-gray-500">Year Established</label>
                 <p className="text-sm text-gray-900">{employerData.year_established}</p>
               </div>
+              {employerData.country_of_incorporation && (
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Country of Incorporation</label>
+                  <p className="text-sm text-gray-900">{employerData.country_of_incorporation}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Business Information</CardTitle>
+              <CardTitle>Quick Actions</CardTitle>
               <CardDescription>
-                Additional details about your business
+                Common tasks and shortcuts
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-gray-500">Nature of Business</label>
-                <p className="text-sm text-gray-900">{employerData.nature_of_business}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">Total US Employees</label>
-                <p className="text-sm text-gray-900">{employerData.total_us_employees}</p>
-              </div>
-              {employerData.telephone_number && (
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Telephone</label>
-                  <p className="text-sm text-gray-900">{employerData.telephone_number}</p>
-                </div>
-              )}
+            <CardContent className="space-y-3">
+              <Button onClick={handleAddCase} className="w-full justify-start">
+                <Plus className="h-4 w-4 mr-2" />
+                Add New H1-B Case
+              </Button>
+              <Button variant="outline" onClick={handleSettings} className="w-full justify-start">
+                <SettingsIcon className="h-4 w-4 mr-2" />
+                Organization Settings
+              </Button>
+              <Button variant="outline" className="w-full justify-start" disabled>
+                <FileText className="h-4 w-4 mr-2" />
+                Generate Reports (Coming Soon)
+              </Button>
             </CardContent>
           </Card>
         </div>
 
         {/* Cases Table */}
-        <CasesTable 
-          employerId={employerData.id}
-          onAddCase={handleAddCase}
-        />
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Cases</CardTitle>
+            <CardDescription>
+              Your H1-B petition cases and their current status
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <CasesTable employerId={employerData.id} />
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
