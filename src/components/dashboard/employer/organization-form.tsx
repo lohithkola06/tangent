@@ -2,12 +2,14 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import { createClient } from "@/lib/supabase"
-import { Loader2, Building, MapPin, DollarSign, Users, FileText } from "lucide-react"
+import { Loader2, Building, MapPin, DollarSign, Users, Globe } from "lucide-react"
 
 interface OrganizationFormProps {
   onSuccess: () => void
@@ -21,15 +23,20 @@ interface BusinessLocation {
 }
 
 interface BusinessDetails {
-  year_established: number | ''
-  total_us_employees: number | ''
+  year_established: string
+  total_us_employees: string
   telephone_number: string
   nature_of_business: string
+  naics_code: string
+  country_of_incorporation: string
+  state_of_incorporation: string
+  is_individual_petitioner: boolean
+  ssn_individual_petitioner: string
 }
 
 interface FinancialInfo {
-  gross_annual_income: number | ''
-  net_annual_income: number | ''
+  gross_annual_income: string
+  net_annual_income: string
   financial_documents_url: string
 }
 
@@ -53,6 +60,22 @@ interface FormData {
   notes: string
 }
 
+interface FormErrors {
+  [key: string]: string | undefined
+  general?: string
+}
+
+// US States for incorporation dropdown
+const US_STATES = [
+  'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware',
+  'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky',
+  'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi',
+  'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey', 'New Mexico',
+  'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania',
+  'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont',
+  'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming'
+]
+
 export function OrganizationForm({ onSuccess, userId }: OrganizationFormProps) {
   const [formData, setFormData] = useState<FormData>({
     legal_business_name: '',
@@ -67,7 +90,12 @@ export function OrganizationForm({ onSuccess, userId }: OrganizationFormProps) {
       year_established: '',
       total_us_employees: '',
       telephone_number: '',
-      nature_of_business: ''
+      nature_of_business: '',
+      naics_code: '',
+      country_of_incorporation: 'United States',
+      state_of_incorporation: '',
+      is_individual_petitioner: false,
+      ssn_individual_petitioner: ''
     },
     financial_info: {
       gross_annual_income: '',
@@ -85,12 +113,12 @@ export function OrganizationForm({ onSuccess, userId }: OrganizationFormProps) {
     notes: ''
   })
 
-  const [errors, setErrors] = useState<any>({})
+  const [errors, setErrors] = useState<FormErrors>({})
   const [isLoading, setIsLoading] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
 
   const validateStep = (step: number): boolean => {
-    const newErrors: any = {}
+    const newErrors: FormErrors = {}
 
     if (step === 1) {
       // Basic Business Information
@@ -113,7 +141,7 @@ export function OrganizationForm({ onSuccess, userId }: OrganizationFormProps) {
     }
 
     if (step === 3) {
-      // Business Details
+      // Business Details & I-129 Information
       if (!formData.business_details.year_established) {
         newErrors['business_details.year_established'] = 'Year established is required'
       }
@@ -122,6 +150,12 @@ export function OrganizationForm({ onSuccess, userId }: OrganizationFormProps) {
       }
       if (!formData.business_details.nature_of_business.trim()) {
         newErrors['business_details.nature_of_business'] = 'Nature of business is required'
+      }
+      if (formData.business_details.country_of_incorporation === 'United States' && !formData.business_details.state_of_incorporation) {
+        newErrors['business_details.state_of_incorporation'] = 'State of incorporation is required for US companies'
+      }
+      if (formData.business_details.is_individual_petitioner && !formData.business_details.ssn_individual_petitioner.trim()) {
+        newErrors['business_details.ssn_individual_petitioner'] = 'SSN is required for individual petitioners'
       }
     }
 
@@ -154,8 +188,6 @@ export function OrganizationForm({ onSuccess, userId }: OrganizationFormProps) {
       }
       if (!formData.contact_info.email_address.trim()) {
         newErrors['contact_info.email_address'] = 'Email address is required'
-      } else if (!/\S+@\S+\.\S+/.test(formData.contact_info.email_address)) {
-        newErrors['contact_info.email_address'] = 'Email address is invalid'
       }
     }
 
@@ -185,7 +217,7 @@ export function OrganizationForm({ onSuccess, userId }: OrganizationFormProps) {
 
       console.log('Creating organization...', formData)
 
-      // 1. Create employer record
+      // 1. Create employer record with I-129 fields
       const { data: employerData, error: employerError } = await supabase
         .from('employers')
         .insert({
@@ -199,7 +231,13 @@ export function OrganizationForm({ onSuccess, userId }: OrganizationFormProps) {
           year_established: Number(formData.business_details.year_established),
           total_us_employees: Number(formData.business_details.total_us_employees),
           telephone_number: formData.business_details.telephone_number || null,
-          nature_of_business: formData.business_details.nature_of_business
+          nature_of_business: formData.business_details.nature_of_business,
+          // I-129 specific fields
+          naics_code: formData.business_details.naics_code || null,
+          country_of_incorporation: formData.business_details.country_of_incorporation,
+          state_of_incorporation: formData.business_details.state_of_incorporation || null,
+          is_individual_petitioner: formData.business_details.is_individual_petitioner,
+          ssn_individual_petitioner: formData.business_details.ssn_individual_petitioner || null
         })
         .select()
         .single()
@@ -262,15 +300,16 @@ export function OrganizationForm({ onSuccess, userId }: OrganizationFormProps) {
       console.log('Organization created successfully!')
       onSuccess()
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Organization creation error:', error)
-      setErrors({ general: error.message || 'An error occurred while creating the organization' })
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred while creating the organization'
+      setErrors({ general: errorMessage })
     } finally {
       setIsLoading(false)
     }
   }
 
-  const updateFormData = (section: string, field: string, value: any) => {
+  const updateFormData = (section: string, field: string, value: string | number | boolean) => {
     setFormData(prev => ({
       ...prev,
       [section]: {
@@ -282,15 +321,19 @@ export function OrganizationForm({ onSuccess, userId }: OrganizationFormProps) {
     // Clear error when user starts typing
     const errorKey = `${section}.${field}`
     if (errors[errorKey]) {
-      setErrors((prev: any) => ({ ...prev, [errorKey]: undefined }))
+      setErrors((prev: FormErrors) => ({ ...prev, [errorKey]: undefined }))
     }
   }
 
-  const updateBasicField = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+  const updateBasicField = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }))
     
+    // Clear error when user starts typing
     if (errors[field]) {
-      setErrors((prev: any) => ({ ...prev, [field]: undefined }))
+      setErrors((prev: FormErrors) => ({ ...prev, [field]: undefined }))
     }
   }
 
@@ -298,17 +341,14 @@ export function OrganizationForm({ onSuccess, userId }: OrganizationFormProps) {
     switch (currentStep) {
       case 1:
         return (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center space-x-2">
-                <Building className="h-5 w-5 text-blue-600" />
-                <CardTitle>Basic Business Information</CardTitle>
-              </div>
-              <CardDescription>
-                Enter your organization's basic details
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <div className="space-y-6">
+            <div className="text-center">
+              <Building className="mx-auto h-12 w-12 text-blue-600" />
+              <h2 className="mt-4 text-2xl font-bold text-gray-900">Basic Business Information</h2>
+              <p className="mt-2 text-gray-600">Let&apos;s start with your organization&apos;s basic details</p>
+            </div>
+
+            <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="legal_business_name">Legal Business Name *</Label>
                 <Input
@@ -316,7 +356,7 @@ export function OrganizationForm({ onSuccess, userId }: OrganizationFormProps) {
                   value={formData.legal_business_name}
                   onChange={(e) => updateBasicField('legal_business_name', e.target.value)}
                   className={errors.legal_business_name ? 'border-red-500' : ''}
-                  placeholder="Enter legal business name"
+                  placeholder="Enter your legal business name"
                 />
                 {errors.legal_business_name && (
                   <p className="text-sm text-red-500">{errors.legal_business_name}</p>
@@ -324,17 +364,17 @@ export function OrganizationForm({ onSuccess, userId }: OrganizationFormProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="trade_name">Trade Name</Label>
+                <Label htmlFor="trade_name">Trade Name (DBA)</Label>
                 <Input
                   id="trade_name"
                   value={formData.trade_name}
                   onChange={(e) => updateBasicField('trade_name', e.target.value)}
-                  placeholder="Enter trade name (optional)"
+                  placeholder="Doing business as (optional)"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="federal_employer_id">Federal Employer ID Number *</Label>
+                <Label htmlFor="federal_employer_id">Federal Employer ID (EIN) *</Label>
                 <Input
                   id="federal_employer_id"
                   value={formData.federal_employer_id}
@@ -346,31 +386,28 @@ export function OrganizationForm({ onSuccess, userId }: OrganizationFormProps) {
                   <p className="text-sm text-red-500">{errors.federal_employer_id}</p>
                 )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )
 
       case 2:
         return (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center space-x-2">
-                <MapPin className="h-5 w-5 text-green-600" />
-                <CardTitle>Business Location</CardTitle>
-              </div>
-              <CardDescription>
-                Provide your business address details
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <div className="space-y-6">
+            <div className="text-center">
+              <MapPin className="mx-auto h-12 w-12 text-blue-600" />
+              <h2 className="mt-4 text-2xl font-bold text-gray-900">Business Location</h2>
+              <p className="mt-2 text-gray-600">Where is your business located?</p>
+            </div>
+
+            <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="address">Address *</Label>
+                <Label htmlFor="address">Business Address *</Label>
                 <Input
                   id="address"
                   value={formData.business_location.address}
                   onChange={(e) => updateFormData('business_location', 'address', e.target.value)}
                   className={errors['business_location.address'] ? 'border-red-500' : ''}
-                  placeholder="Enter business address"
+                  placeholder="Street address"
                 />
                 {errors['business_location.address'] && (
                   <p className="text-sm text-red-500">{errors['business_location.address']}</p>
@@ -383,7 +420,7 @@ export function OrganizationForm({ onSuccess, userId }: OrganizationFormProps) {
                   id="suite_floor_unit"
                   value={formData.business_location.suite_floor_unit}
                   onChange={(e) => updateFormData('business_location', 'suite_floor_unit', e.target.value)}
-                  placeholder="Suite, floor, or unit number (optional)"
+                  placeholder="Suite 100, Floor 5, etc. (optional)"
                 />
               </div>
 
@@ -394,29 +431,26 @@ export function OrganizationForm({ onSuccess, userId }: OrganizationFormProps) {
                   value={formData.business_location.postal_code}
                   onChange={(e) => updateFormData('business_location', 'postal_code', e.target.value)}
                   className={errors['business_location.postal_code'] ? 'border-red-500' : ''}
-                  placeholder="Enter postal code"
+                  placeholder="12345"
                 />
                 {errors['business_location.postal_code'] && (
                   <p className="text-sm text-red-500">{errors['business_location.postal_code']}</p>
                 )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )
 
       case 3:
         return (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center space-x-2">
-                <Building className="h-5 w-5 text-purple-600" />
-                <CardTitle>Business Details</CardTitle>
-              </div>
-              <CardDescription>
-                Tell us more about your business
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <div className="space-y-6">
+            <div className="text-center">
+              <Globe className="mx-auto h-12 w-12 text-blue-600" />
+              <h2 className="mt-4 text-2xl font-bold text-gray-900">Business Details & I-129 Information</h2>
+              <p className="mt-2 text-gray-600">Additional details required for H1-B petitions</p>
+            </div>
+
+            <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="year_established">Year Established *</Label>
@@ -424,9 +458,9 @@ export function OrganizationForm({ onSuccess, userId }: OrganizationFormProps) {
                     id="year_established"
                     type="number"
                     value={formData.business_details.year_established}
-                    onChange={(e) => updateFormData('business_details', 'year_established', e.target.value ? Number(e.target.value) : '')}
+                    onChange={(e) => updateFormData('business_details', 'year_established', e.target.value)}
                     className={errors['business_details.year_established'] ? 'border-red-500' : ''}
-                    placeholder="YYYY"
+                    placeholder="2020"
                     min="1800"
                     max={new Date().getFullYear()}
                   />
@@ -441,7 +475,7 @@ export function OrganizationForm({ onSuccess, userId }: OrganizationFormProps) {
                     id="total_us_employees"
                     type="number"
                     value={formData.business_details.total_us_employees}
-                    onChange={(e) => updateFormData('business_details', 'total_us_employees', e.target.value ? Number(e.target.value) : '')}
+                    onChange={(e) => updateFormData('business_details', 'total_us_employees', e.target.value)}
                     className={errors['business_details.total_us_employees'] ? 'border-red-500' : ''}
                     placeholder="Number of employees"
                     min="0"
@@ -463,48 +497,130 @@ export function OrganizationForm({ onSuccess, userId }: OrganizationFormProps) {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="naics_code">NAICS Code</Label>
+                <Input
+                  id="naics_code"
+                  value={formData.business_details.naics_code}
+                  onChange={(e) => updateFormData('business_details', 'naics_code', e.target.value)}
+                  placeholder="6-digit NAICS code (optional)"
+                  maxLength={10}
+                />
+                <p className="text-xs text-gray-500">
+                  North American Industry Classification System code for your business
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="country_of_incorporation">Country of Incorporation *</Label>
+                  <Select
+                    value={formData.business_details.country_of_incorporation}
+                    onValueChange={(value) => updateFormData('business_details', 'country_of_incorporation', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="United States">United States</SelectItem>
+                      <SelectItem value="Canada">Canada</SelectItem>
+                      <SelectItem value="United Kingdom">United Kingdom</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {formData.business_details.country_of_incorporation === 'United States' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="state_of_incorporation">State of Incorporation *</Label>
+                    <Select
+                      value={formData.business_details.state_of_incorporation}
+                      onValueChange={(value) => updateFormData('business_details', 'state_of_incorporation', value)}
+                    >
+                      <SelectTrigger className={errors['business_details.state_of_incorporation'] ? 'border-red-500' : ''}>
+                        <SelectValue placeholder="Select state" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {US_STATES.map(state => (
+                          <SelectItem key={state} value={state}>{state}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors['business_details.state_of_incorporation'] && (
+                      <p className="text-sm text-red-500">{errors['business_details.state_of_incorporation']}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="is_individual_petitioner"
+                    checked={formData.business_details.is_individual_petitioner}
+                    onCheckedChange={(checked) => updateFormData('business_details', 'is_individual_petitioner', !!checked)}
+                  />
+                  <Label htmlFor="is_individual_petitioner" className="text-sm font-medium">
+                    Individual Petitioner (not a company)
+                  </Label>
+                </div>
+                
+                {formData.business_details.is_individual_petitioner && (
+                  <div className="space-y-2">
+                    <Label htmlFor="ssn_individual_petitioner">Social Security Number *</Label>
+                    <Input
+                      id="ssn_individual_petitioner"
+                      value={formData.business_details.ssn_individual_petitioner}
+                      onChange={(e) => updateFormData('business_details', 'ssn_individual_petitioner', e.target.value)}
+                      className={errors['business_details.ssn_individual_petitioner'] ? 'border-red-500' : ''}
+                      placeholder="XXX-XX-XXXX"
+                      maxLength={11}
+                    />
+                    {errors['business_details.ssn_individual_petitioner'] && (
+                      <p className="text-sm text-red-500">{errors['business_details.ssn_individual_petitioner']}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="nature_of_business">Nature of Business *</Label>
                 <Textarea
                   id="nature_of_business"
                   value={formData.business_details.nature_of_business}
                   onChange={(e) => updateFormData('business_details', 'nature_of_business', e.target.value)}
                   className={errors['business_details.nature_of_business'] ? 'border-red-500' : ''}
-                  placeholder="Describe your business activities"
+                  placeholder="Describe your business activities and industry"
                   rows={3}
                 />
                 {errors['business_details.nature_of_business'] && (
                   <p className="text-sm text-red-500">{errors['business_details.nature_of_business']}</p>
                 )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )
 
       case 4:
         return (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center space-x-2">
-                <DollarSign className="h-5 w-5 text-green-600" />
-                <CardTitle>Financial Information</CardTitle>
-              </div>
-              <CardDescription>
-                Provide your organization's financial details
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <div className="space-y-6">
+            <div className="text-center">
+              <DollarSign className="mx-auto h-12 w-12 text-blue-600" />
+              <h2 className="mt-4 text-2xl font-bold text-gray-900">Financial Information</h2>
+              <p className="mt-2 text-gray-600">Financial details for H1-B petition requirements</p>
+            </div>
+
+            <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="gross_annual_income">Gross Annual Income *</Label>
+                  <Label htmlFor="gross_annual_income">Gross Annual Income ($) *</Label>
                   <Input
                     id="gross_annual_income"
                     type="number"
                     value={formData.financial_info.gross_annual_income}
-                    onChange={(e) => updateFormData('financial_info', 'gross_annual_income', e.target.value ? Number(e.target.value) : '')}
+                    onChange={(e) => updateFormData('financial_info', 'gross_annual_income', e.target.value)}
                     className={errors['financial_info.gross_annual_income'] ? 'border-red-500' : ''}
-                    placeholder="0.00"
+                    placeholder="1000000"
                     min="0"
-                    step="0.01"
                   />
                   {errors['financial_info.gross_annual_income'] && (
                     <p className="text-sm text-red-500">{errors['financial_info.gross_annual_income']}</p>
@@ -512,16 +628,15 @@ export function OrganizationForm({ onSuccess, userId }: OrganizationFormProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="net_annual_income">Net Annual Income *</Label>
+                  <Label htmlFor="net_annual_income">Net Annual Income ($) *</Label>
                   <Input
                     id="net_annual_income"
                     type="number"
                     value={formData.financial_info.net_annual_income}
-                    onChange={(e) => updateFormData('financial_info', 'net_annual_income', e.target.value ? Number(e.target.value) : '')}
+                    onChange={(e) => updateFormData('financial_info', 'net_annual_income', e.target.value)}
                     className={errors['financial_info.net_annual_income'] ? 'border-red-500' : ''}
-                    placeholder="0.00"
+                    placeholder="800000"
                     min="0"
-                    step="0.01"
                   />
                   {errors['financial_info.net_annual_income'] && (
                     <p className="text-sm text-red-500">{errors['financial_info.net_annual_income']}</p>
@@ -536,32 +651,29 @@ export function OrganizationForm({ onSuccess, userId }: OrganizationFormProps) {
                   value={formData.financial_info.financial_documents_url}
                   onChange={(e) => updateFormData('financial_info', 'financial_documents_url', e.target.value)}
                   className={errors['financial_info.financial_documents_url'] ? 'border-red-500' : ''}
-                  placeholder="URL to financial documents"
+                  placeholder="https://example.com/financial-documents"
                 />
                 {errors['financial_info.financial_documents_url'] && (
                   <p className="text-sm text-red-500">{errors['financial_info.financial_documents_url']}</p>
                 )}
-                <p className="text-sm text-gray-500">
-                  Provide a link to your financial documents (tax returns, financial statements, etc.)
+                <p className="text-xs text-gray-500">
+                  Link to tax returns, financial statements, or other financial documentation
                 </p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )
 
       case 5:
         return (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center space-x-2">
-                <Users className="h-5 w-5 text-blue-600" />
-                <CardTitle>Contact Information</CardTitle>
-              </div>
-              <CardDescription>
-                Primary contact person for this organization
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <div className="space-y-6">
+            <div className="text-center">
+              <Users className="mx-auto h-12 w-12 text-blue-600" />
+              <h2 className="mt-4 text-2xl font-bold text-gray-900">Contact Information</h2>
+              <p className="mt-2 text-gray-600">Primary contact for H1-B petition matters</p>
+            </div>
+
+            <div className="space-y-4">
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="first_name">First Name *</Label>
@@ -657,14 +769,8 @@ export function OrganizationForm({ onSuccess, userId }: OrganizationFormProps) {
                   rows={3}
                 />
               </div>
-
-              {errors.general && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                  <p className="text-sm text-red-600">{errors.general}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )
 
       default:
@@ -673,37 +779,35 @@ export function OrganizationForm({ onSuccess, userId }: OrganizationFormProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Create Your Organization</h1>
-          <p className="mt-2 text-gray-600">
-            Set up your organization profile to start managing H1-B petitions
-          </p>
-        </div>
-
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-2xl mx-auto px-4">
         {/* Progress indicator */}
         <div className="mb-8">
-          <div className="flex items-center justify-between">
-            {[1, 2, 3, 4, 5].map((step) => (
-              <div
-                key={step}
-                className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
-                  step <= currentStep
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-600'
-                }`}
-              >
-                {step}
-              </div>
-            ))}
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-gray-600">Step {currentStep} of 5</span>
+            <span className="text-sm text-gray-500">{Math.round((currentStep / 5) * 100)}% Complete</span>
           </div>
-          <div className="mt-2 text-center text-sm text-gray-600">
-            Step {currentStep} of 5
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${(currentStep / 5) * 100}%` }}
+            />
           </div>
         </div>
 
-        {renderStep()}
+        {/* Error message */}
+        {errors.general && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-red-800">{errors.general}</p>
+          </div>
+        )}
+
+        {/* Form content */}
+        <Card>
+          <CardContent className="p-8">
+            {renderStep()}
+          </CardContent>
+        </Card>
 
         {/* Navigation buttons */}
         <div className="mt-8 flex justify-between">

@@ -1,17 +1,17 @@
 'use client'
 
 import { useState } from "react"
-import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { UserRole } from "@/lib/supabase"
-import { createClient } from "@/lib/supabase"
 import { ArrowLeft, Loader2 } from "lucide-react"
+import { apiClient } from "@/lib/api-client"
+import { UserRole } from "@/lib/types"
 
 interface SignupFormProps {
   selectedRole: UserRole
+  onBack: () => void
   onSuccess: () => void
 }
 
@@ -23,7 +23,7 @@ interface FormData {
   confirmPassword: string
 }
 
-export function SignupForm({ selectedRole, onSuccess }: SignupFormProps) {
+export function SignupForm({ selectedRole, onBack, onSuccess }: SignupFormProps) {
   const [formData, setFormData] = useState<FormData>({
     firstName: '',
     lastName: '',
@@ -77,93 +77,71 @@ export function SignupForm({ selectedRole, onSuccess }: SignupFormProps) {
     setIsLoading(true)
     
     try {
-      const supabase = createClient()
-      
       console.log('Starting signup process...', { email: formData.email, role: selectedRole })
       
-      // Sign up with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      // Use API client instead of direct Supabase calls
+      await apiClient.signup({
         email: formData.email,
         password: formData.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/verify`
-        }
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        role: selectedRole
       })
 
-      if (authError) {
-        console.error('Auth error:', authError)
-        throw authError
-      }
-
-      console.log('Auth signup successful:', authData)
-      
-      if (!authData || !authData.user) {
-        throw new Error('Failed to create user account')
-      }
-
-      const { id } = authData.user
-      
-      // Create user profile using stored procedure
-      const { error: profileError, data: profileData } = await supabase
-        .rpc('create_user_profile', {
-          p_email: formData.email,
-          p_first_name: formData.firstName,
-          p_last_name: formData.lastName,
-          p_role: selectedRole.toString()
-        })
-        .select()
-        .single()
-
-      if (profileError) {
-        console.error('Profile creation error:', profileError)
-        throw new Error(`Failed to create user profile: ${profileError.message}`)
-      }
-
-      console.log('User profile created:', profileData)
       console.log('Signup successful!')
-      if (onSuccess) {
-        onSuccess()
-      } else {
-        window.location.href = '/dashboard'
-      }
-    } catch (error: unknown) {
+      onSuccess()
+    } catch (error: any) {
       console.error('Signup error:', error)
-      const errorMessage = error instanceof Error ? error.message : 'An error occurred during signup'
-      setErrors({ email: errorMessage })
+      setErrors({ email: error.message || 'An error occurred during signup' })
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleInputChange = (field: keyof FormData) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev: FormData) => ({ ...prev, [field]: e.target.value }))
+    setFormData(prev => ({ ...prev, [field]: e.target.value }))
+    
     // Clear error when user starts typing
     if (errors[field]) {
-      setErrors((prev: Partial<FormData>) => ({ ...prev, [field]: undefined }))
+      setErrors(prev => ({ ...prev, [field]: undefined }))
     }
   }
 
-  const getRoleDisplayName = (role: UserRole) => {
-    return role.charAt(0).toUpperCase() + role.slice(1)
+  const getRoleDisplayName = (role: UserRole): string => {
+    switch (role) {
+      case 'employer':
+        return 'Employer'
+      case 'employee':
+        return 'Employee'
+      case 'attorney':
+        return 'Attorney'
+      default:
+        return 'User'
+    }
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
+        <div className="text-center">
+          <h2 className="mt-6 text-3xl font-bold tracking-tight text-gray-900">
+            Create your account
+          </h2>
+          <p className="mt-2 text-sm text-gray-600">
+            Sign up as {getRoleDisplayName(selectedRole).toLowerCase()} to get started
+          </p>
+        </div>
+        
         <Card>
-          <CardHeader className="space-y-1">
+          <CardHeader>
             <div className="flex items-center space-x-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="p-1 h-8 w-8"
-              >
+              <Button variant="ghost" size="sm" onClick={onBack}>
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <div>
-                <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
+                <CardTitle>Registration</CardTitle>
                 <CardDescription>
-                  Sign up as {getRoleDisplayName(selectedRole)}
+                  Enter your details to create your account
                 </CardDescription>
               </div>
             </div>
@@ -255,20 +233,6 @@ export function SignupForm({ selectedRole, onSuccess }: SignupFormProps) {
                   'Create Account'
                 )}
               </Button>
-              <div className="flex justify-between mt-4">
-              <Link
-                  href="/"
-                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  Home
-                </Link>
-                <Link
-                  href="/signin"
-                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  Sign In
-                </Link>
-              </div>
             </form>
           </CardContent>
         </Card>

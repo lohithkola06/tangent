@@ -6,6 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import { createClient } from "@/lib/supabase"
 import { Loader2, ArrowLeft, Save } from "lucide-react"
 
@@ -26,15 +28,25 @@ interface EmployerData {
   total_us_employees: number
   telephone_number: string | null
   nature_of_business: string
+  // I-129 specific fields
+  naics_code: string | null
+  country_of_incorporation: string
+  state_of_incorporation: string | null
+  is_individual_petitioner: boolean
+  ssn_individual_petitioner: string | null
 }
 
 interface FinancialData {
+  id: string
+  employer_id: string
   gross_annual_income: number
   net_annual_income: number
   financial_documents_url: string
 }
 
 interface ContactData {
+  id: string
+  employer_id: string
   first_name: string
   last_name: string
   middle_name: string | null
@@ -43,10 +55,28 @@ interface ContactData {
   email_address: string
 }
 
+interface NotesData {
+  id: string
+  employer_id: string
+  notes: string | null
+}
+
+// US States for incorporation dropdown
+const US_STATES = [
+  'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware',
+  'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky',
+  'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi',
+  'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey', 'New Mexico',
+  'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania',
+  'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont',
+  'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming'
+]
+
 export function Settings({ user, onBack }: SettingsProps) {
   const [employerData, setEmployerData] = useState<EmployerData | null>(null)
   const [financialData, setFinancialData] = useState<FinancialData | null>(null)
   const [contactData, setContactData] = useState<ContactData | null>(null)
+  const [notesData, setNotesData] = useState<NotesData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [errors, setErrors] = useState<any>({})
@@ -96,6 +126,17 @@ export function Settings({ user, onBack }: SettingsProps) {
         setContactData(contact)
       }
 
+      // Load notes data
+      const { data: notes, error: notesError } = await supabase
+        .from('employer_notes')
+        .select('*')
+        .eq('employer_id', employer.id)
+        .single()
+
+      if (!notesError) {
+        setNotesData(notes)
+      }
+
     } catch (error) {
       console.error('Error loading organization data:', error)
     } finally {
@@ -113,7 +154,7 @@ export function Settings({ user, onBack }: SettingsProps) {
     try {
       const supabase = createClient()
 
-      // Update employer data
+      // Update employer data with I-129 fields
       const { error: employerError } = await supabase
         .from('employers')
         .update({
@@ -127,6 +168,12 @@ export function Settings({ user, onBack }: SettingsProps) {
           total_us_employees: employerData.total_us_employees,
           telephone_number: employerData.telephone_number,
           nature_of_business: employerData.nature_of_business,
+          // I-129 specific fields
+          naics_code: employerData.naics_code,
+          country_of_incorporation: employerData.country_of_incorporation,
+          state_of_incorporation: employerData.state_of_incorporation,
+          is_individual_petitioner: employerData.is_individual_petitioner,
+          ssn_individual_petitioner: employerData.ssn_individual_petitioner,
           updated_at: new Date().toISOString()
         })
         .eq('id', employerData.id)
@@ -167,6 +214,20 @@ export function Settings({ user, onBack }: SettingsProps) {
 
         if (contactError) {
           throw contactError
+        }
+      }
+
+      // Update notes data if exists
+      if (notesData) {
+        const { error: notesError } = await supabase
+          .from('employer_notes')
+          .update({
+            notes: notesData.notes
+          })
+          .eq('employer_id', employerData.id)
+
+        if (notesError) {
+          throw notesError
         }
       }
 
@@ -379,6 +440,96 @@ export function Settings({ user, onBack }: SettingsProps) {
             </CardContent>
           </Card>
 
+          {/* I-129 Specific Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle>I-129 Petition Information</CardTitle>
+              <CardDescription>
+                Additional details required for H1-B petitions
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="naics_code">NAICS Code</Label>
+                <Input
+                  id="naics_code"
+                  value={employerData.naics_code || ''}
+                  onChange={(e) => setEmployerData(prev => prev ? { ...prev, naics_code: e.target.value || null } : null)}
+                  placeholder="6-digit NAICS code"
+                  maxLength={10}
+                />
+                <p className="text-xs text-gray-500">
+                  North American Industry Classification System code for your business
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="country_of_incorporation">Country of Incorporation</Label>
+                  <Select
+                    value={employerData.country_of_incorporation}
+                    onValueChange={(value) => setEmployerData(prev => prev ? { ...prev, country_of_incorporation: value } : null)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="United States">United States</SelectItem>
+                      <SelectItem value="Canada">Canada</SelectItem>
+                      <SelectItem value="United Kingdom">United Kingdom</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {employerData.country_of_incorporation === 'United States' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="state_of_incorporation">State of Incorporation</Label>
+                    <Select
+                      value={employerData.state_of_incorporation || ''}
+                      onValueChange={(value) => setEmployerData(prev => prev ? { ...prev, state_of_incorporation: value || null } : null)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select state" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {US_STATES.map(state => (
+                          <SelectItem key={state} value={state}>{state}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="is_individual_petitioner"
+                    checked={employerData.is_individual_petitioner}
+                    onCheckedChange={(checked) => setEmployerData(prev => prev ? { ...prev, is_individual_petitioner: !!checked } : null)}
+                  />
+                  <Label htmlFor="is_individual_petitioner" className="text-sm font-medium">
+                    Individual Petitioner (not a company)
+                  </Label>
+                </div>
+                
+                {employerData.is_individual_petitioner && (
+                  <div className="space-y-2">
+                    <Label htmlFor="ssn_individual_petitioner">Social Security Number</Label>
+                    <Input
+                      id="ssn_individual_petitioner"
+                      value={employerData.ssn_individual_petitioner || ''}
+                      onChange={(e) => setEmployerData(prev => prev ? { ...prev, ssn_individual_petitioner: e.target.value || null } : null)}
+                      placeholder="XXX-XX-XXXX"
+                      maxLength={11}
+                    />
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Financial Information */}
           {financialData && (
             <Card>
@@ -391,7 +542,7 @@ export function Settings({ user, onBack }: SettingsProps) {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="gross_annual_income">Gross Annual Income</Label>
+                    <Label htmlFor="gross_annual_income">Gross Annual Income ($)</Label>
                     <Input
                       id="gross_annual_income"
                       type="number"
@@ -400,7 +551,7 @@ export function Settings({ user, onBack }: SettingsProps) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="net_annual_income">Net Annual Income</Label>
+                    <Label htmlFor="net_annual_income">Net Annual Income ($)</Label>
                     <Input
                       id="net_annual_income"
                       type="number"
@@ -487,6 +638,28 @@ export function Settings({ user, onBack }: SettingsProps) {
               </CardContent>
             </Card>
           )}
+
+          {/* Notes */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Additional Notes</CardTitle>
+              <CardDescription>
+                Any additional information about your organization
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea
+                  id="notes"
+                  value={notesData?.notes || ''}
+                  onChange={(e) => setNotesData(prev => prev ? { ...prev, notes: e.target.value } : { id: '', employer_id: employerData?.id || '', notes: e.target.value })}
+                  rows={4}
+                  placeholder="Enter any additional notes or comments..."
+                />
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

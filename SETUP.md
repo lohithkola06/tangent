@@ -305,3 +305,4 @@ src/
     └── signup/
         └── page.tsx             # Main signup page orchestrator
 ```
+ 
