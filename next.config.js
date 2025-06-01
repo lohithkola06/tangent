@@ -4,9 +4,8 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  experimental: {
-    serverComponentsExternalPackages: ['nodemailer', '@sendgrid/mail']
-  },
+  // Updated from experimental.serverComponentsExternalPackages for Next.js 15.3.2+
+  serverExternalPackages: ['nodemailer', '@sendgrid/mail'],
   webpack: (config, { isServer }) => {
     if (!isServer) {
       // Don't bundle server-side email libraries on the client

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { employerService } from '@/lib/services/employer.service'
 
 export async function PUT(request: NextRequest) {
   try {
