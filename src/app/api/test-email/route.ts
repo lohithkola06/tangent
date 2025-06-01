@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { EmailService } from '@/lib/services/email.service'
 import { ApiResponse } from '@/lib/types'
 
 export async function POST(request: NextRequest) {
@@ -22,6 +21,8 @@ export async function POST(request: NextRequest) {
       } as ApiResponse, { status: 400 })
     }
 
+    // Dynamic import to avoid webpack bundling issues
+    const { EmailService } = await import('@/lib/services/email.service')
     const emailService = new EmailService()
 
     switch (type) {
