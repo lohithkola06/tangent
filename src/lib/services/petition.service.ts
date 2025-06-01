@@ -1,10 +1,7 @@
 import { createClient } from '@/lib/supabase'
 import { PetitionData, CreatePetitionRequest, EmployerData } from '@/lib/types'
-import { InvitationService } from './invitation.service'
 
 export class PetitionService {
-  private invitationService = new InvitationService()
-
   private async getSupabaseClient() {
     return createClient()
   }
@@ -133,20 +130,6 @@ export class PetitionService {
       }
 
       console.log('Petition created successfully:', petitionData)
-
-      // Create employee invitation for questionnaire
-      try {
-        await this.invitationService.createInvitationForPetition({
-          petition_id: petitionData.id,
-          employee_email: data.employee_email,
-          employee_first_name: data.employee_first_name,
-          employee_last_name: data.employee_last_name
-        })
-        console.log('Employee invitation created successfully')
-      } catch (invitationError) {
-        console.error('Failed to create invitation:', invitationError)
-        // Don't fail the petition creation if invitation fails
-      }
 
       return petitionData as PetitionData
     } catch (error: any) {
