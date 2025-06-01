@@ -69,6 +69,52 @@ export interface CaseData {
   updated_at: string
 }
 
+// Petition Types
+export interface PetitionData {
+  id: string
+  employer_id: string
+  employee_id?: string
+  petition_type: 'h1b_initial' | 'h1b_extension' | 'h1b_transfer' | 'h1b_amendment'
+  petition_status: 'draft' | 'submitted' | 'approved' | 'denied' | 'withdrawn' | 'rfe_issued' | 'rfe_responded'
+  priority_date?: string
+  receipt_number?: string
+  employee_email?: string
+  employee_first_name?: string
+  employee_last_name?: string
+  employee_middle_name?: string
+  classification_sought: string
+  is_new_employment: boolean
+  is_extension: boolean
+  is_amendment: boolean
+  is_transfer: boolean
+  original_validity_from?: string
+  original_validity_to?: string
+  extension_reason?: string
+  previous_employer_name?: string
+  previous_employer_ein?: string
+  previous_petition_receipt_number?: string
+  job_title: string
+  job_description: string
+  supervisor_name?: string
+  supervisor_title?: string
+  employment_start_date: string
+  employment_end_date: string
+  is_full_time: boolean
+  hours_per_week?: number
+  work_address: string
+  work_city: string
+  work_state: string
+  work_zip_code: string
+  work_country: string
+  annual_salary: number
+  salary_currency: string
+  pay_frequency: string
+  assigned_attorney?: string
+  notes?: string
+  created_at: string
+  updated_at: string
+}
+
 // API Request/Response types
 export interface SignupRequest {
   email: string
@@ -128,6 +174,25 @@ export interface CreateCaseRequest {
   job_description: string
   annual_salary: number
   start_date: string
+  notes?: string
+}
+
+export interface CreatePetitionRequest {
+  employee_email: string
+  employee_first_name: string
+  employee_last_name: string
+  employee_middle_name?: string
+  petition_type?: PetitionData['petition_type']
+  job_title: string
+  job_description: string
+  employment_start_date: string
+  employment_end_date: string
+  is_full_time?: boolean
+  hours_per_week?: number
+  annual_salary: number
+  supervisor_name?: string
+  supervisor_title?: string
+  assigned_attorney?: string
   notes?: string
 }
 

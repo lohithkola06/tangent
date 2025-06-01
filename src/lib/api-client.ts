@@ -7,8 +7,10 @@ import {
   FinancialData, 
   ContactData, 
   CaseData, 
+  PetitionData,
   CreateOrganizationRequest, 
-  CreateCaseRequest, 
+  CreateCaseRequest,
+  CreatePetitionRequest,
   UpdateProfileRequest,
   ApiResponse 
 } from './types'
@@ -170,6 +172,25 @@ class ApiClient {
 
   async getCaseStats(): Promise<{ active: number; total: number }> {
     const response = await this.request<{ active: number; total: number }>('/cases/stats')
+    return response.data!
+  }
+
+  // Petition endpoints
+  async getPetitions(): Promise<PetitionData[]> {
+    const response = await this.request<PetitionData[]>('/petitions')
+    return response.data!
+  }
+
+  async createPetition(data: CreatePetitionRequest): Promise<PetitionData> {
+    const response = await this.request<PetitionData>('/petitions', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+    return response.data!
+  }
+
+  async getPetitionStats(): Promise<{ active: number; total: number }> {
+    const response = await this.request<{ active: number; total: number }>('/petitions/stats')
     return response.data!
   }
 }
