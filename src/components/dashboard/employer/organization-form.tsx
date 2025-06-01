@@ -310,13 +310,23 @@ export function OrganizationForm({ onSuccess, userId }: OrganizationFormProps) {
   }
 
   const updateFormData = (section: string, field: string, value: string | number | boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section as keyof FormData],
-        [field]: value
+    setFormData(prev => {
+      const sectionData = prev[section as keyof FormData]
+      
+      // Ensure we're dealing with an object section before spreading
+      if (typeof sectionData === 'object' && sectionData !== null) {
+        return {
+          ...prev,
+          [section]: {
+            ...sectionData,
+            [field]: value
+          }
+        }
       }
-    }))
+      
+      // Fallback for non-object sections (shouldn't happen in our form structure)
+      return prev
+    })
     
     // Clear error when user starts typing
     const errorKey = `${section}.${field}`
