@@ -19,9 +19,12 @@ class ApiClient {
   private baseUrl: string
 
   constructor() {
-    this.baseUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://your-domain.com' 
-      : 'http://localhost:3000'
+    // Use relative URLs in the browser, absolute URLs on the server
+    this.baseUrl = typeof window !== 'undefined' 
+      ? '' // Use relative URLs in the browser
+      : process.env.NODE_ENV === 'production'
+        ? process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : ''
+        : 'http://localhost:3000'
   }
 
   private async request<T>(
