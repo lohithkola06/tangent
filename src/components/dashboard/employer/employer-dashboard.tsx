@@ -445,7 +445,7 @@ export function EmployerDashboard({ user, userProfile }: EmployerDashboardProps)
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <CasesTable employerId={employerData.id} />
+            <CasesTable employerId={employerData.id} onAddCase={handleAddCase} />
           </CardContent>
         </Card>
       </div>
