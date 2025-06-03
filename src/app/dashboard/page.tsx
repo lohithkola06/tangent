@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { EmployerDashboard } from '@/components/dashboard/employer/employer-dashboard'
+import { AttorneyDashboard } from '@/components/dashboard/attorney/attorney-dashboard'
 import { apiClient } from '@/lib/api-client'
 import { UserProfile } from '@/lib/types'
 
@@ -61,14 +62,7 @@ export default function DashboardPage() {
         </DashboardLayout>
       )
     case 'attorney':
-      return (
-        <DashboardLayout>
-          <div className="text-center py-12">
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">Attorney Dashboard</h1>
-            <p className="text-gray-600">Attorney dashboard coming soon...</p>
-          </div>
-        </DashboardLayout>
-      )
+      return <AttorneyDashboard user={user} userProfile={user} />
     default:
       return (
         <DashboardLayout>
