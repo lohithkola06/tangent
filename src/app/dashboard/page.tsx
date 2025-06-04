@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
-import { EmployerDashboard } from '@/components/dashboard/employer/employer-dashboard'
+import EmployerDashboard from '@/components/dashboard/employer/employer-dashboard'
 import { apiClient } from '@/lib/api-client'
 import { UserProfile } from '@/lib/types'
 

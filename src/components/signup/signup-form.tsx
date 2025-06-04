@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { UserRole } from "@/lib/supabase"
-import { createClient } from "@/lib/supabase"
+import { SupaService } from "@/lib/services/auth.service"
 import { ArrowLeft, Loader2 } from "lucide-react"
 
 interface SignupFormProps {
@@ -77,50 +77,25 @@ export function SignupForm({ selectedRole, onSuccess }: SignupFormProps) {
     setIsLoading(true)
     
     try {
-      const supabase = createClient()
+      const supaService = new SupaService()
       
       console.log('Starting signup process...', { email: formData.email, role: selectedRole })
-      
-      // Sign up with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      const signupData = {
         email: formData.email,
         password: formData.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/verify`
-        }
-      })
-
-      if (authError) {
-        console.error('Auth error:', authError)
-        throw authError
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        role: selectedRole
       }
-
-      console.log('Auth signup successful:', authData)
+      // Sign up with Supabase Auth
+      const result = await supaService.signup(signupData)
       
-      if (!authData || !authData.user) {
-        throw new Error('Failed to create user account')
+
+      if (!result) {
+        console.error('Auth error:', result)
+        throw result
       }
 
-      const { id } = authData.user
-      
-      // Create user profile using stored procedure
-      const { error: profileError, data: profileData } = await supabase
-        .rpc('create_user_profile', {
-          p_email: formData.email,
-          p_first_name: formData.firstName,
-          p_last_name: formData.lastName,
-          p_role: selectedRole.toString()
-        })
-        .select()
-        .single()
-
-      if (profileError) {
-        console.error('Profile creation error:', profileError)
-        throw new Error(`Failed to create user profile: ${profileError.message}`)
-      }
-
-      console.log('User profile created:', profileData)
-      console.log('Signup successful!')
       if (onSuccess) {
         onSuccess()
       } else {

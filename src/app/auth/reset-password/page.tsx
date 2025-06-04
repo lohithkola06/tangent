@@ -28,12 +28,14 @@ export default function ResetPasswordPage() {
     if (token && !success) {
       const supabase = createClient()
       
-      // Try to sign in with the reset token
-      supabase.auth.signInWithOtp({
-        email: '',
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/reset-password`
-        }
+      // Extract email from token
+      const email = token?.split(':')[0]
+      
+      // Verify the reset token
+      supabase.auth.verifyOtp({
+        email,
+        token: token,
+        type: 'email'
       }).then(({ error }) => {
         if (error) {
           setError('Invalid reset token')
@@ -57,21 +59,7 @@ export default function ResetPasswordPage() {
     const supabase = createClient()
 
     try {
-      // First, sign in with the reset token
-      const { error: signInError } = await supabase.auth.signInWithOtp({
-        email: '',
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/reset-password`
-        }
-      })
-
-      if (signInError) {
-        setError(signInError.message || 'Invalid reset token')
-        setIsLoading(false)
-        return
-      }
-
-      // Now update the password
+      // Update password using the reset token
       const { error: updateError } = await supabase.auth.updateUser({
         password: password
       })
@@ -84,7 +72,8 @@ export default function ResetPasswordPage() {
 
       setSuccess(true)
       setIsLoading(false)
-    } catch {
+    } catch (error) {
+      console.error('Password reset error:', error)
       setError('Failed to update password')
       setIsLoading(false)
     }

@@ -30,12 +30,15 @@ export function ForgotPasswordForm({ onSuccess }: ForgotPasswordFormProps) {
         redirectTo: `${window.location.origin}/auth/reset-password`
       })
 
-      if (resetError) throw resetError
+      if (resetError) {
+        throw new Error(resetError.message || 'Failed to send reset email')
+      }
 
       setSuccess(true)
       if (onSuccess) onSuccess()
     } catch (error) {
-      setError(error instanceof Error ? error.message : "An error occurred while resetting your password")
+      console.error('Password reset error:', error)
+      setError(error instanceof Error ? error.message : 'Failed to send reset email')
     } finally {
       setIsLoading(false)
     }

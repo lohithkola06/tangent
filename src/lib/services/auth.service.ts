@@ -1,16 +1,19 @@
-import { createClient } from '@/lib/supabase-server'
+//import { createClient } from '@/lib/supabase-server'
+import { createClient } from '@supabase/supabase-js'
 import { SignupRequest, SigninRequest, UserProfile, AuthResponse } from '@/lib/types'
 
-export class AuthService {
+export class SupaService {
   private async getSupabaseClient() {
-    return await createClient()
+    return createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
   }
 
-  async signup(data: SignupRequest): Promise<AuthResponse> {
+  async signup(data: SignupRequest): Promise<boolean> {
     const supabase = await this.getSupabaseClient()
 
     try {
-      console.log('Starting signup process...', { email: data.email, role: data.role })
       
       // Sign up with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -33,46 +36,21 @@ export class AuthService {
       if (!authData.user) {
         throw new Error('User creation failed')
       }
-
-      console.log('Creating user profile...', {
-        id: authData.user.id,
-        email: data.email,
-        role: data.role
-      })
-      
-      // Create the user profile manually to ensure proper type handling
-      const { error: profileError } = await supabase
-        .from('users')
-        .insert({
-          id: authData.user.id,
-          email: data.email,
-          first_name: data.firstName,
-          last_name: data.lastName,
-          role: data.role
-        })
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      const { error: profileError, data: profileData } = await supabase
+        .rpc('employer_sign_up', {
+          p_email: data.email,
+          p_first_name: data.firstName,
+          p_last_name: data.lastName
+        });
 
       if (profileError) {
         console.error('Profile creation error:', profileError)
         throw new Error(`Failed to create user profile: ${profileError.message}`)
       }
 
-      // Get the created profile
-      const { data: profile, error: getProfileError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', authData.user.id)
-        .single()
+      return profileData;
 
-      if (getProfileError || !profile) {
-        throw new Error('Failed to retrieve user profile')
-      }
-
-      console.log('Signup successful!')
-      
-      return {
-        user: profile as UserProfile,
-        session: authData.session
-      }
     } catch (error: any) {
       console.error('Signup error:', error)
       throw new Error(error.message || 'An error occurred during signup')

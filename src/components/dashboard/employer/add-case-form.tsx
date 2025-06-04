@@ -9,6 +9,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createClient } from "@/lib/supabase"
 import { Loader2, ArrowLeft, Plus } from "lucide-react"
+import { InviteEmployee } from "./invite-employee"
+import { UserRole } from "@/lib/supabase"
+import { CaseInvitationService } from "@/lib/services/case-invitation.service"
+import { toast } from "react-hot-toast"
 
 interface AddCaseFormProps {
   employerId: string
@@ -23,7 +27,7 @@ interface CaseFormData {
   case_type: string
   job_title: string
   job_description: string
-  annual_salary: number | ''
+  annual_salary: string
   start_date: string
   notes: string
 }
@@ -41,54 +45,147 @@ export function AddCaseForm({ employerId, onBack, onSuccess }: AddCaseFormProps)
     notes: ''
   })
 
-  const [errors, setErrors] = useState<any>({})
-  const [isLoading, setIsLoading] = useState(false)
+  const [caseData, setCaseData] = useState<{
+    id: string
+    employer_id: string
+    employee_email: string
+    employee_first_name: string
+    employee_last_name: string
+    case_type: string
+    case_status: string
+    job_title: string
+    job_description: string
+    annual_salary: number
+    start_date: string
+    notes: string | null
+    assigned_attorney: string
+    created_at: string
+    updated_at: string
+  } | null>(null)
+  const caseInvitationService = new CaseInvitationService()
+
+
+  type FormDataErrors = Record<keyof CaseFormData, string | undefined> & {
+    general?: string
+  };
+  const [errors, setErrors] = useState<FormDataErrors>({
+    employee_email: undefined,
+    employee_first_name: undefined,
+    employee_last_name: undefined,
+    case_type: undefined,
+    job_title: undefined,
+    job_description: undefined,
+    annual_salary: undefined,
+    start_date: undefined,
+    notes: undefined,
+    general: undefined
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(false)
+
+  const handleError = (error: unknown) => {
+    const newErrors: FormDataErrors = {
+      employee_email: undefined,
+      employee_first_name: undefined,
+      employee_last_name: undefined,
+      case_type: undefined,
+      job_title: undefined,
+      job_description: undefined,
+      annual_salary: undefined,
+      start_date: undefined,
+      notes: undefined,
+      general: error instanceof Error ? error.message : 'Missing or invalid data'
+    }
+    setErrors(newErrors)
+  }
 
   const validateForm = (): boolean => {
-    const newErrors: any = {}
+    const newErrors: FormDataErrors = {
+      employee_email: undefined,
+      employee_first_name: undefined,
+      employee_last_name: undefined,
+      case_type: undefined,
+      job_title: undefined,
+      job_description: undefined,
+      annual_salary: undefined,
+      start_date: undefined,
+      notes: undefined,
+      general: undefined
+    }
+    
+    console.log('Validating form data:', formData)
+    console.log('Current errors:', errors)
 
-    if (!formData.employee_email.trim()) {
+    // Employee information
+    if (!formData.employee_email?.trim()) {
+      console.log('Validation error: employee_email is required')
       newErrors.employee_email = 'Employee email is required'
-    } else if (!/\S+@\S+\.\S+/.test(formData.employee_email)) {
-      newErrors.employee_email = 'Email is invalid'
+    } else if (!formData.employee_email.includes('@')) {
+      console.log('Validation error: employee_email is invalid')
+      newErrors.employee_email = 'Please enter a valid email address'
     }
 
-    if (!formData.employee_first_name.trim()) {
+    if (!formData.employee_first_name?.trim()) {
+      console.log('Validation error: employee_first_name is required')
       newErrors.employee_first_name = 'First name is required'
     }
 
-    if (!formData.employee_last_name.trim()) {
+    if (!formData.employee_last_name?.trim()) {
+      console.log('Validation error: employee_last_name is required')
       newErrors.employee_last_name = 'Last name is required'
     }
 
-    if (!formData.job_title.trim()) {
+    // Case information
+    if (!formData.case_type?.trim()) {
+      console.log('Validation error: case_type is required')
+      newErrors.case_type = 'Case type is required'
+    }
+
+    if (!formData.job_title?.trim()) {
+      console.log('Validation error: job_title is required')
       newErrors.job_title = 'Job title is required'
     }
 
-    if (!formData.job_description.trim()) {
+    if (!formData.job_description?.trim()) {
+      console.log('Validation error: job_description is required')
       newErrors.job_description = 'Job description is required'
     }
 
-    if (!formData.annual_salary) {
+    // Salary and date
+    if (!formData.annual_salary?.trim()) {
+      console.log('Validation error: annual_salary is required')
       newErrors.annual_salary = 'Annual salary is required'
-    } else if (Number(formData.annual_salary) <= 0) {
-      newErrors.annual_salary = 'Annual salary must be greater than 0'
+    } else if (isNaN(Number(formData.annual_salary))) {
+      console.log('Validation error: annual_salary is invalid')
+      newErrors.annual_salary = 'Please enter a valid number'
     }
 
-    if (!formData.start_date) {
+    if (!formData.start_date?.trim()) {
+      console.log('Validation error: start_date is required')
       newErrors.start_date = 'Start date is required'
     }
 
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    // Set errors only if there are actual errors
+    const hasErrors = Object.values(newErrors).some(error => error !== undefined)
+    if (hasErrors) {
+      setErrors(newErrors)
+    }
+
+    return !hasErrors
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
+    console.log('Form submission started')
+    console.log('Form data:', formData)
+    console.log('Errors:', errors)
+    
     e.preventDefault()
     
     if (!validateForm()) {
+      console.log('Form validation failed')
       return
     }
+    
+    console.log('Form validation passed')
 
     setIsLoading(true)
 
@@ -97,55 +194,137 @@ export function AddCaseForm({ employerId, onBack, onSuccess }: AddCaseFormProps)
 
       console.log('Creating new case...', formData)
 
-      // Create the case record
-      const { data: caseData, error: caseError } = await supabase
-        .from('cases')
+      // 1. Check if user exists
+      const { error: userError } = await supabase
+        .from('users')
+        .select('id, email')
+        .eq('email', formData.employee_email)
+        .single()
+
+      if (userError) {
+        // If user doesn't exist, create new user account
+        console.log('Creating new user account...')
+        // First create employee record
+       
+        const { error: authError } = await supabase.auth.signUp({
+          email: formData.employee_email,
+          password: 'temp_password', // Will be reset immediately
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/verify`
+          }
+        })
+
+        if (authError) throw authError
+      // Create user profile using stored procedure
+      const { error: profileError, data: profileData } = await supabase
+      .rpc('create_user_profile', {
+        p_email: formData.employee_email,
+        p_first_name: formData.employee_first_name,
+        p_last_name: formData.employee_last_name,
+        p_role: 'employee'
+      })
+      .select()
+      .single()
+
+      if (profileError) {
+      console.error('Profile creation error:', profileError)
+      throw new Error(`Failed to create user profile: ${profileError.message}`)
+      }
+
+      console.log('User profile created:', profileData)
+        const { data: employeeData, error: employeeError } = await supabase
+        .from('employees')
         .insert({
+          id: profileData.id,
+          first_name: formData.employee_first_name,
+          last_name: formData.employee_last_name,
+          email_address: formData.employee_email
+        })
+        .select()
+        .single()
+
+      if (employeeError) throw employeeError
+      const employeeId = employeeData.id
+
+        // Send password reset request after creating new user
+        console.log('Sending password reset request for new user...')
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(formData.employee_email, {
+          redirectTo: `${window.location.origin}/auth/reset-password?employeeId=${employeeId}`,
+          captchaToken: undefined
+        })
+
+        if (resetError) throw resetError
+      } else {
+        // If user exists, send password reset request
+        console.log('User exists, sending password reset request...')
+        const { error: authError } = await supabase.auth.resetPasswordForEmail(formData.employee_email, {
+          redirectTo: `${window.location.origin}/auth/reset-password?caseId=${employerId}`,
+          captchaToken: undefined
+        })
+
+        if (authError) throw authError
+      }
+
+      // 2. Create the case record
+      const { data, error } = await supabase
+        .from('cases')
+        .insert([{
           employer_id: employerId,
           employee_email: formData.employee_email,
           employee_first_name: formData.employee_first_name,
           employee_last_name: formData.employee_last_name,
           case_type: formData.case_type,
-          case_status: 'questionnaires_assigned',
           job_title: formData.job_title,
           job_description: formData.job_description,
-          annual_salary: Number(formData.annual_salary),
+          annual_salary: formData.annual_salary,
           start_date: formData.start_date,
-          notes: formData.notes || null,
-          assigned_attorney: 'Wayne Nguyen, Esq.', // Default attorney for now
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
+          notes: formData.notes,
+          assigned_attorney: 'pending',
+          case_status: 'questionnaires_assigned'  // Initial status for new cases
+        }])
         .select()
         .single()
 
-      if (caseError) {
-        console.error('Case creation error:', caseError)
-        throw caseError
-      }
+      if (error) throw error
+      if (!data) throw new Error('Failed to create case')
 
-      console.log('Case created successfully:', caseData)
+      setCaseData(data)
 
-      // TODO: Send invitation email to employee
-      // TODO: Create questionnaire assignments
+      // 3. Create case invitation for employee
+      await caseInvitationService.createInvitation(
+        data.id,
+        employerId,
+        formData.employee_email,
+        'employee' as UserRole
+      )
 
+      // Create case invitation for attorney
+      /*await caseInvitationService.createInvitation(
+        data.id,
+        employerId,
+        data.assigned_attorney,
+        'attorney' as UserRole
+      )*/
+
+      // Show success message
+      toast.success('Case created successfully')
       onSuccess()
-
-    } catch (error: any) {
-      console.error('Case creation error:', error)
-      setErrors({ general: error.message || 'An error occurred while creating the case' })
+    } catch (error) {
+      console.error('Error creating case:', error)
+      handleError(error)
+      toast.error('Failed to create case')
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleInputChange = (field: keyof CaseFormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const value = field === 'annual_salary' ? (e.target.value ? Number(e.target.value) : '') : e.target.value
+    const value = e.target.value
     setFormData(prev => ({ ...prev, [field]: value }))
     
     // Clear error when user starts typing
     if (errors[field]) {
-      setErrors((prev: any) => ({ ...prev, [field]: undefined }))
+      setErrors(prev => ({ ...prev, [field]: undefined }))
     }
   }
 
@@ -153,7 +332,7 @@ export function AddCaseForm({ employerId, onBack, onSuccess }: AddCaseFormProps)
     setFormData(prev => ({ ...prev, [field]: value }))
     
     if (errors[field]) {
-      setErrors((prev: any) => ({ ...prev, [field]: undefined }))
+      setErrors(prev => ({ ...prev, [field]: undefined }))
     }
   }
 
@@ -192,6 +371,25 @@ export function AddCaseForm({ employerId, onBack, onSuccess }: AddCaseFormProps)
                 <div className="p-3 bg-red-50 border border-red-200 rounded-md">
                   <p className="text-sm text-red-600">{errors.general}</p>
                 </div>
+              )}
+
+              {/* Employer Information */}
+              {/* {employer && (
+                <EmployerInfo
+                  employer={employer}
+                  onEdit={() => {
+                    // TODO: Implement employer edit functionality
+                    console.log('Edit employer clicked')
+                  }}
+                />
+              )}
+
+              {/* Invite Employee */}
+              {caseData && (
+                <InviteEmployee
+                  caseId={caseData.id}
+                  employerId={employerId}
+                />
               )}
 
               {/* Employee Information */}

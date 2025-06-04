@@ -58,7 +58,7 @@ interface ContactData {
   email_address: string
 }
 
-export function EmployerDashboard({ user, userProfile }: EmployerDashboardProps) {
+export default function EmployerDashboard({ user, userProfile }: EmployerDashboardProps) {
   const [employerData, setEmployerData] = useState<EmployerData | null>(null)
   const [financialData, setFinancialData] = useState<FinancialData | null>(null)
   const [contactData, setContactData] = useState<ContactData | null>(null)
