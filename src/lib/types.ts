@@ -1,19 +1,22 @@
+import { User } from "@supabase/supabase-js"
+
 // Shared types for frontend and backend
 export type UserRole = 'employer' | 'employee' | 'attorney'
 
 export interface UserProfile {
   id: string
   email: string
-  role: UserRole
   first_name: string | null
   last_name: string | null
+  role: UserRole
+  org_id: string
+  status: string
   created_at: string
   updated_at: string
 }
 
-export interface EmployerData {
-  id: string
-  user_id: string
+export interface Organization {
+  org_id: string
   legal_business_name: string
   trade_name: string | null
   federal_employer_id: string
@@ -22,25 +25,24 @@ export interface EmployerData {
   postal_code: string
   year_established: number
   total_us_employees: number
-  telephone_number: string | null
-  nature_of_business: string
-  created_at: string
-  updated_at: string
-}
-
-export interface FinancialData {
-  id: string
-  employer_id: string
   gross_annual_income: number
   net_annual_income: number
   financial_documents_url: string
+  telephone_number: string | null
+  nature_of_business: string
+  naics_code: string | null
+  country_of_incorporation: string | null
+  state_of_incorporation: string | null
+  ssn_individual_petitioner: string | null
+  is_individual_petitioner: boolean | null
   created_at: string
   updated_at: string
 }
 
-export interface ContactData {
+
+export interface OrganizationH1BApprovers {
   id: string
-  employer_id: string
+  org_id: string
   first_name: string
   last_name: string
   middle_name: string | null
@@ -172,3 +174,28 @@ export interface ApiResponse<T = any> {
   error?: string
   message?: string
 } 
+// Add Supabase client type
+declare global {
+  interface Window {
+    supabase: {
+      auth: {
+        getSession: () => AuthResponse;
+      };
+    };
+  }
+}
+export interface AuthSession {
+  id:string;
+  access_token: string;
+  refresh_token: string;
+}
+
+export interface AuthResponse {
+  data: {
+    user: UserProfile;
+    session: AuthSession | null;
+  };
+  error: {
+    message: string;
+  } | null;
+}
