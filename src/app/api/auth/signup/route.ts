@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { AuthService } from '@/lib/services/auth.service'
+import { AuthService } from '@/lib/services/supaservices'
 import { SignupRequest, ApiResponse } from '@/lib/types'
 
 export async function POST(request: NextRequest) {

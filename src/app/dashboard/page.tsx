@@ -18,6 +18,12 @@ export default function DashboardPage() {
 
   const loadUser = async () => {
     try {
+      const storedProfile = localStorage.getItem('userProfile')
+      if (storedProfile) {
+        setUser(JSON.parse(storedProfile))
+        setIsLoading(true)
+        return
+      }
       const currentUser = await apiClient.getCurrentUser()
       if (!currentUser) {
         router.push('/signin')

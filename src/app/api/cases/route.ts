@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { AuthService } from '@/lib/services/auth.service'
+import { AuthService } from '@/lib/services/supaservices'
 import { EmployerService } from '@/lib/services/employer.service'
 import { CaseService } from '@/lib/services/case.service'
 import { CreateCaseRequest, ApiResponse } from '@/lib/types'

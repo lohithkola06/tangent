@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { AuthService } from '@/lib/services/auth.service'
+import { SupaService } from '@/lib/services/supaservices'
 import { ApiResponse } from '@/lib/types'
 
 export async function GET(request: NextRequest) {
   try {
-    const authService = new AuthService()
+    const authService = new SupaService()
     const user = await authService.getCurrentUser()
 
     if (!user) {

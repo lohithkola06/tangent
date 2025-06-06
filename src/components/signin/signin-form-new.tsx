@@ -59,6 +59,10 @@ export function SigninForm() {
         email: formData.email,
         password: formData.password
       })
+      if(!result){
+        console.log(result)
+        throw new Error(result)
+      }
 
       console.log('Signin successful!', result)
       

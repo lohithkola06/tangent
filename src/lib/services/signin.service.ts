@@ -8,7 +8,7 @@ async signin(data: SigninRequest): Promise<AuthResponse> {
     
 
     try {
-      const { data: authData, error: signInError } = await this.supaService.signInWithPassword({
+      const { session: authData, error: signInError } = await this.supaService.signInWithPassword({
         email: data.email,
         password: data.password
       })

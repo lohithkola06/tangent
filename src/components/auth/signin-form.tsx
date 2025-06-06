@@ -8,9 +8,10 @@ import { Label } from "@/components/ui/label"
 import { Loader2 } from "lucide-react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase"
+import { UserProfile } from "@/lib/types"
 
 interface SigninFormProps {
-  onSuccess?: () => void
+  onSuccess?: (profile: UserProfile) => void
 }
 
 interface FormData {
@@ -38,8 +39,6 @@ export function SigninForm({ onSuccess }: SigninFormProps) {
     try {
       const supabase = createClient()
       
-      console.log('Starting signin process...', { email: formData.email })
-      
       // Sign in with password
       const { error: signInError, data: authData } = await supabase.auth.signInWithPassword({
         email: formData.email,
@@ -55,9 +54,10 @@ export function SigninForm({ onSuccess }: SigninFormProps) {
         setIsLoading(false)
         return
       }
-
+      console.log('Signin successful!', authData)
       // If successful, proceed with sign in
       if (authData.session) {
+        localStorage.setItem('supabase-auth-token', authData.session.access_token)
         const { user } = authData.session
         
         // Verify user has a profile
@@ -78,13 +78,8 @@ export function SigninForm({ onSuccess }: SigninFormProps) {
         }
 
         console.log('User profile found:', profileData)
-        console.log('Sign in successful!')
-        if (onSuccess) {
-          onSuccess()
-        } else {
-          // Default redirect to dashboard
-          window.location.href = '/dashboard'
-        }
+        onSuccess(profileData)
+        
       }
     } catch (error) {
       console.error('Unexpected error:', error)

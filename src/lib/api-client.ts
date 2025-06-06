@@ -3,9 +3,6 @@ import {
   SigninRequest, 
   AuthResponse, 
   UserProfile, 
-  EmployerData, 
-  FinancialData, 
-  ContactData, 
   CaseData, 
   CreateOrganizationRequest, 
   CreateCaseRequest, 
@@ -39,6 +36,14 @@ class ApiClient {
         'Content-Type': 'application/json',
         ...options.headers,
       },
+      ...(typeof window !== 'undefined' && 
+        window.supabase?.auth?.getSession?.() && 
+        {
+          headers: {
+            Authorization: `Bearer ${window.supabase.auth.getSession().data.session?.access_token}`
+          }
+        }
+      ),
       credentials: 'include', // Include cookies for authentication
       ...options,
     }
@@ -72,6 +77,7 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(data),
     })
+    console.log('Signin response:', response)
     return response.data!
   }
 
@@ -83,6 +89,7 @@ class ApiClient {
 
   async getCurrentUser(): Promise<UserProfile | null> {
     try {
+      console.log('Getting current user...')
       const response = await this.request<UserProfile>('/auth/me')
       return response.data!
     } catch (error: any) {
