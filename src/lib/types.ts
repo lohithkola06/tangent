@@ -1,4 +1,4 @@
-import { User } from "@supabase/supabase-js"
+import { UserProfile,Session,AuthError } from "@supabase/supabase-js"
 
 // Shared types for frontend and backend
 export type UserRole = 'employer' | 'employee' | 'attorney'
@@ -185,17 +185,15 @@ declare global {
   }
 }
 export interface AuthSession {
-  id:string;
-  access_token: string;
-  refresh_token: string;
+  session:Session;
+  error:AuthError;
 }
+
 
 export interface AuthResponse {
   data: {
-    user: UserProfile;
-    session: AuthSession | null;
+    user: AuthUser;
+    session: AuthSession;
   };
-  error: {
-    message: string;
-  } | null;
+  error: AuthError | null;
 }

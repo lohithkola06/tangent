@@ -1,21 +1,25 @@
 //import { createClient } from '@/lib/supabase-server'
 import { createClient } from '@/lib/supabase'
-import { SignupRequest, SigninRequest, UserProfile, AuthSession,Organization,OrganizationH1BApprovers } from '@/lib/types'
+import { SignupRequest, SigninRequest, AuthUser, AuthResponse,Organization,OrganizationH1BApprovers } from '@/lib/types'
 
 export class SupaService {
   private async getSupabaseClient() {
     return createClient()
   }
 
-  async signInWithPassword(data:SigninRequest){
+  async signInWithPassword(data:SigninRequest):Promise<AuthResponse>{
     const supabase = await this.getSupabaseClient()
     try {
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password
-      })
-      
-      return { data: authData, error: authError }
+      })  
+
+      return {
+        user:authData.user,
+        session: authData.session,
+        error: authError
+      }
       
     } catch (error: any) {
       console.error('Error while signin:', error)
