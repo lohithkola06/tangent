@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { createClient } from "@/lib/supabase"
-import { Loader2, Eye, EyeOff } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import Link from "next/link"
+import { createClient } from "@/lib/supabase"
+import { UserProfile } from "@/lib/types"
 
 interface SigninFormProps {
-  onSuccess?: () => void
+  onSuccess?: (profile: UserProfile) => void
 }
 
 interface FormData {
@@ -25,7 +26,68 @@ export function SigninForm({ onSuccess }: SigninFormProps) {
   })
   const [errors, setErrors] = useState<Partial<FormData>>({})
   const [isLoading, setIsLoading] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!validateForm()) {
+      return
+    }
+
+    setIsLoading(true)
+    
+    try {
+      const supabase = createClient()
+      
+      // Sign in with password
+      const { error: signInError, data: authData } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password
+      })
+
+      if (signInError) {
+        if (signInError.message.includes('User not found')) {
+          setErrors({ email: 'User does not exist' })
+        } else {
+          setErrors({ email: signInError.message })
+        }
+        setIsLoading(false)
+        return
+      }
+      console.log('Signin successful!', authData)
+      // If successful, proceed with sign in
+      if (authData.session) {
+        localStorage.setItem('supabase-auth-token', authData.session.access_token)
+        const { user } = authData.session
+        
+        // Verify user has a profile
+        const { data: profileData, error: profileError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', user.id)
+          .single()
+
+        if (profileError) {
+          console.error('Profile verification error:', profileError)
+          if (profileError.message.includes('not found')) {
+            // If profile not found, redirect to signup
+            window.location.href = '/signup'
+            return
+          }
+          throw new Error('Failed to verify user profile')
+        }
+
+        console.log('User profile found:', profileData)
+        onSuccess(profileData)
+        
+      }
+    } catch (error) {
+      console.error('Unexpected error:', error)
+      setErrors({ email: 'An unexpected error occurred. Please try again.' })
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const validateForm = (): boolean => {
     const newErrors: Partial<FormData> = {}
@@ -44,66 +106,11 @@ export function SigninForm({ onSuccess }: SigninFormProps) {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!validateForm()) {
-      return
-    }
-
-    setIsLoading(true)
-    
-    try {
-      const supabase = createClient()
-      
-      console.log('Starting signin process...', { email: formData.email })
-      
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password,
-      })
-
-      console.log('Signin result:', { data, error })
-
-      if (error) {
-        console.error('Signin error:', error)
-        
-        // Handle specific error types
-        if (error.message.includes('Invalid login credentials')) {
-          setErrors({ 
-            email: 'Invalid email or password',
-            password: 'Invalid email or password'
-          })
-        } else if (error.message.includes('Email not confirmed')) {
-          setErrors({ email: 'Please check your email and click the confirmation link' })
-        } else {
-          setErrors({ email: error.message })
-        }
-        return
-      }
-
-      if (data.user) {
-        console.log('Signin successful!')
-        if (onSuccess) {
-          onSuccess()
-        } else {
-          // Default redirect to dashboard
-          window.location.href = '/dashboard'
-        }
-      }
-    } catch (error: any) {
-      console.error('Unexpected signin error:', error)
-      setErrors({ email: 'An unexpected error occurred. Please try again.' })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   const handleInputChange = (field: keyof FormData) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, [field]: e.target.value }))
+    setFormData((prev: FormData) => ({ ...prev, [field]: e.target.value }))
     // Clear error when user starts typing
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }))
+      setErrors((prev: Partial<FormData>) => ({ ...prev, [field]: undefined }))
     }
   }
 
@@ -137,30 +144,13 @@ export function SigninForm({ onSuccess }: SigninFormProps) {
 
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    value={formData.password}
-                    onChange={handleInputChange('password')}
-                    className={errors.password ? 'border-red-500 pr-10' : 'pr-10'}
-                    autoComplete="current-password"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
-                    )}
-                  </Button>
-                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={handleInputChange('password')}
+                  className={errors.password ? 'border-red-500' : ''}
+                />
                 {errors.password && (
                   <p className="text-sm text-red-500">{errors.password}</p>
                 )}
@@ -183,7 +173,7 @@ export function SigninForm({ onSuccess }: SigninFormProps) {
             </form>
 
             <div className="mt-6 text-center text-sm">
-              <span className="text-gray-600">Don't have an account? </span>
+              <span className="text-gray-600">Don&apos;t have an account? </span>
               <Link 
                 href="/signup" 
                 className="font-medium text-blue-600 hover:text-blue-500 hover:underline"
@@ -194,7 +184,7 @@ export function SigninForm({ onSuccess }: SigninFormProps) {
 
             <div className="mt-4 text-center">
               <Link 
-                href="/forgot-password" 
+                href="/auth/forgot-password" 
                 className="text-sm text-gray-600 hover:text-gray-500 hover:underline"
               >
                 Forgot your password?

@@ -1,17 +1,17 @@
 'use client'
 
 import { useState } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { UserRole } from "@/lib/supabase"
-import { createClient } from "@/lib/supabase"
+import { SupaService } from "@/lib/services/supaservices"
 import { ArrowLeft, Loader2 } from "lucide-react"
 
 interface SignupFormProps {
   selectedRole: UserRole
-  onBack: () => void
   onSuccess: () => void
 }
 
@@ -23,7 +23,7 @@ interface FormData {
   confirmPassword: string
 }
 
-export function SignupForm({ selectedRole, onBack, onSuccess }: SignupFormProps) {
+export function SignupForm({ selectedRole, onSuccess }: SignupFormProps) {
   const [formData, setFormData] = useState<FormData>({
     firstName: '',
     lastName: '',
@@ -77,71 +77,44 @@ export function SignupForm({ selectedRole, onBack, onSuccess }: SignupFormProps)
     setIsLoading(true)
     
     try {
-      const supabase = createClient()
+      const supaService = new SupaService()
       
       console.log('Starting signup process...', { email: formData.email, role: selectedRole })
-      
-      // Sign up with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      const signupData = {
         email: formData.email,
         password: formData.password,
-        options: {
-          data: {
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            role: selectedRole
-          }
-        }
-      })
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        role: selectedRole
+      }
+      // Sign up with Supabase Auth
+      const result = await supaService.signup(signupData)
+      
 
-      console.log('Auth signup result:', { authData, authError })
-
-      if (authError) {
-        console.error('Auth error:', authError)
-        throw authError
+      if (!result) {
+        console.error('Auth error:', result)
+        throw result
       }
 
-      if (authData.user) {
-        console.log('Creating user profile...', {
-          id: authData.user.id,
-          email: formData.email,
-          role: selectedRole
-        })
-        
-        // Create the user profile manually to ensure proper type handling
-        const { error: profileError } = await supabase
-          .from('users')
-          .insert({
-            id: authData.user.id,
-            email: formData.email,
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            role: selectedRole
-          })
-
-        console.log('Profile creation result:', { profileError })
-
-        if (profileError) {
-          console.error('Profile creation error:', profileError)
-          throw new Error(`Failed to create user profile: ${profileError.message}`)
-        }
-
-        console.log('Signup successful!')
+      if (onSuccess) {
         onSuccess()
+      } else {
+        window.location.href = '/dashboard'
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Signup error:', error)
-      setErrors({ email: error.message || 'An error occurred during signup' })
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred during signup'
+      setErrors({ email: errorMessage })
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleInputChange = (field: keyof FormData) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, [field]: e.target.value }))
+    setFormData((prev: FormData) => ({ ...prev, [field]: e.target.value }))
     // Clear error when user starts typing
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }))
+      setErrors((prev: Partial<FormData>) => ({ ...prev, [field]: undefined }))
     }
   }
 
@@ -158,7 +131,6 @@ export function SignupForm({ selectedRole, onBack, onSuccess }: SignupFormProps)
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={onBack}
                 className="p-1 h-8 w-8"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -258,6 +230,20 @@ export function SignupForm({ selectedRole, onBack, onSuccess }: SignupFormProps)
                   'Create Account'
                 )}
               </Button>
+              <div className="flex justify-between mt-4">
+              <Link
+                  href="/"
+                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  Home
+                </Link>
+                <Link
+                  href="/signin"
+                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  Sign In
+                </Link>
+              </div>
             </form>
           </CardContent>
         </Card>
