@@ -43,7 +43,6 @@ export function ForgotPasswordForm({ onSuccess }: ForgotPasswordFormProps) {
       setIsLoading(false)
     }
   }
-
   if (success) {
     return (
       <div className="text-center">
