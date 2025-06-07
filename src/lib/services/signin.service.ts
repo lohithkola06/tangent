@@ -1,4 +1,4 @@
-import { SigninRequest, UserProfile, AuthResponse, AuthSession } from '@/lib/types'
+import { SigninRequest, AuthResponse } from '@/lib/types'
 import { SupaService } from '@/lib/services/supaservices'
 
 export class SigninService {
@@ -8,34 +8,34 @@ async signin(data: SigninRequest): Promise<AuthResponse> {
     
 
     try {
-      const { session: authData, error: signInError } = await this.supaService.signInWithPassword({
+      const response = await this.supaService.signInWithPassword({
         email: data.email,
         password: data.password
       })
 
-      if (signInError) {
-        throw new Error(signInError.message)
+      if (response.error) {
+        throw new Error(response.error.message)
       }
-      if (!authData) {
+      if (!response.user) {
         throw new Error('Signin failed')
-      }
-
-      // Get user profile
-      const { data: profile, error: profileError } = await this.supaService.getSupabaseClient()
-        .from('users')
-        .select('*')
-        .eq('id', authData.user.id)
-        .single()
-
-      if (profileError || !profile) {
-        throw new Error('Failed to retrieve user profile')
       }
 
       console.log('Signin successful!')
       
       return {
-        user: profile as UserProfile,
-        session: authData.session
+        user:   {
+            id: response.user.id,
+            email: response.user.email,
+            first_name: response.user.first_name, // or get from user profile
+            last_name: response.user.last_name, // or get from user profile
+            role: response.user.role, // or get from user profile
+            org_id: response.user.org_id, // or get from user profile
+            status: response.user.status, // or get from user profile
+            created_at: response.user.created_at,
+            updated_at: response.user.updated_at
+          },
+        session: response.session,
+        error: null
       }
     } catch (error: any) {
       console.error('Error while signin:', error)

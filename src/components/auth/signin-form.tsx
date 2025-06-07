@@ -7,11 +7,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Loader2 } from "lucide-react"
 import Link from "next/link"
-import { createClient } from "@/lib/supabase"
 import { UserProfile } from "@/lib/types"
+import { SigninService } from "@/lib/services/signin.service"
 
 interface SigninFormProps {
-  onSuccess?: (profile: UserProfile) => void
+  onSuccess?: (profile: UserProfile, session: any) => void
 }
 
 interface FormData {
@@ -37,48 +37,38 @@ export function SigninForm({ onSuccess }: SigninFormProps) {
     setIsLoading(true)
     
     try {
-      const supabase = createClient()
-      
+      const signinService = new SigninService()
+      console.log('Starting signin process...', { email: formData.email })
       // Sign in with password
-      const { error: signInError, data: authData } = await supabase.auth.signInWithPassword({
+      const response = await signinService.signin({
         email: formData.email,
         password: formData.password
       })
 
-      if (signInError) {
-        if (signInError.message.includes('User not found')) {
+      if (response.error) {
+        if (response.error.message.includes('User not found')) {
           setErrors({ email: 'User does not exist' })
         } else {
-          setErrors({ email: signInError.message })
+          setErrors({ email: response.error.message })
         }
         setIsLoading(false)
         return
       }
-      console.log('Signin successful!', authData)
+      console.log('Signin successful user!', response.user)
+      console.log('Signin successful session!', response.session)
       // If successful, proceed with sign in
-      if (authData.session) {
-        localStorage.setItem('supabase-auth-token', authData.session.access_token)
-        const { user } = authData.session
-        
+      if (response.session) {
+        console.log('in Session :', response.session.access_token)
+        localStorage.setItem('supabase-auth-token', response.session.access_token)
+
+        console.log('User signed in:', response.user.id)  
         // Verify user has a profile
-        const { data: profileData, error: profileError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', user.id)
-          .single()
+        
 
-        if (profileError) {
-          console.error('Profile verification error:', profileError)
-          if (profileError.message.includes('not found')) {
-            // If profile not found, redirect to signup
-            window.location.href = '/signup'
-            return
-          }
-          throw new Error('Failed to verify user profile')
+        console.log('User profile found:', response.user)
+        if(onSuccess){
+          onSuccess(response.user,response.session)
         }
-
-        console.log('User profile found:', profileData)
-        onSuccess(profileData)
         
       }
     } catch (error) {

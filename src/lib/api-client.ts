@@ -30,7 +30,8 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseUrl}/api${endpoint}`
-    
+    const accessToken = localStorage.getItem('accessToken')
+    console.log('Access token in Request:', accessToken)
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
@@ -40,7 +41,7 @@ class ApiClient {
         window.supabase?.auth?.getSession?.() && 
         {
           headers: {
-            Authorization: `Bearer ${window.supabase.auth.getSession().data.session?.access_token}`
+            Authorization: `Bearer ${accessToken}`
           }
         }
       ),
@@ -90,7 +91,10 @@ class ApiClient {
   async getCurrentUser(): Promise<UserProfile | null> {
     try {
       console.log('Getting current user...')
+      console.log('Supabase session:', window.supabase.auth.getSession().session) 
+      console.log('Supabase access token:', window.supabase.auth.getSession().session?.access_token) 
       const response = await this.request<UserProfile>('/auth/me')
+      console.log('Current user:', response)
       return response.data!
     } catch (error: any) {
       if (error.message.includes('Not authenticated')) {

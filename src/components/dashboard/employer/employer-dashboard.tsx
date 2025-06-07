@@ -74,34 +74,29 @@ export default function EmployerDashboard({ user, userProfile }: EmployerDashboa
 
   const checkEmployerData = async () => {
     try {
-      const supabase = createClient()
       
       console.log('Checking employer data for user:', user.id)
       
-      const { data, error } = await supabase
-        .from('employers')
-        .select('*')
-        .eq('user_id', user.id)
-        .single()
+      
 
-      console.log('Employer data result:', { data, error })
+      console.log('Employer data result:', { userProfile })
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
-        console.error('Error fetching employer data:', error)
+      if (userProfile.error && userProfile.error.code !== 'PGRST116') { // PGRST116 is "not found"
+        console.error('Error fetching employer data:', userProfile.error)
         return
       }
 
-      setEmployerData(data)
+      setEmployerData(userProfile)
       
       // If no employer data exists, show the organization form
-      if (!data) {
+      if (!userProfile.data) {
         setShowOrganizationForm(true)
       } else {
         // Load related data and check completeness
-        await loadRelatedData(data.id)
-        checkProfileCompleteness(data)
+        await loadRelatedData(userProfile.data.id)
+        checkProfileCompleteness(userProfile.data)
         // Load case statistics
-        loadCaseStats(data.id)
+        loadCaseStats(userProfile.data.id)
       }
     } catch (error) {
       console.error('Unexpected error:', error)

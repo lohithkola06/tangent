@@ -1,26 +1,31 @@
 //import { createClient } from '@/lib/supabase-server'
 import { createClient } from '@/lib/supabase'
-import { SignupRequest, SigninRequest, AuthUser, AuthResponse,Organization,OrganizationH1BApprovers } from '@/lib/types'
+import { SignupRequest, SigninRequest,AuthResponse,UserProfile,Organization,OrganizationH1BApprovers } from '@/lib/types'
 
 export class SupaService {
   private async getSupabaseClient() {
     return createClient()
   }
 
-  async signInWithPassword(data:SigninRequest):Promise<AuthResponse>{
+  async signInWithPassword(data: SigninRequest): Promise<AuthResponse> {
     const supabase = await this.getSupabaseClient()
     try {
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password
-      })  
-
-      return {
-        user:authData.user,
-        session: authData.session,
-        error: authError
-      }
+      })
       
+      if (!authData.user) {
+        throw new Error(authError?.message || 'An error occurred while signin')
+      }
+      console.log(authData.user)
+      // Get or create the user profile
+      const userProfile = await this.userprofileSelect(authData.user.id);
+        return {
+          user: userProfile,
+          session: authData.session,
+          error: authError
+        }
     } catch (error: any) {
       console.error('Error while signin:', error)
       throw new Error(error.message || 'An error occurred while signin')
@@ -91,14 +96,14 @@ export class SupaService {
     }
   }
 
-  async userprofileSelect(data: UserProfile): Promise<UserProfile> {
+  async userprofileSelect(id: string): Promise<UserProfile> {
     const supabase = await this.getSupabaseClient()
 
     try {
       const { data: userprofile, error: profileError } = await supabase
         .from('users')
         .select('*')
-        .eq('id', data.id)
+        .eq('id', id)
         .single()
 
       if (profileError || !userprofile) {

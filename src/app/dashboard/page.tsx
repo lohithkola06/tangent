@@ -19,6 +19,7 @@ export default function DashboardPage() {
   const loadUser = async () => {
     try {
       const storedProfile = localStorage.getItem('userProfile')
+      console.log('Stored profile:', storedProfile) 
       if (storedProfile) {
         setUser(JSON.parse(storedProfile))
         setIsLoading(true)
@@ -48,7 +49,7 @@ export default function DashboardPage() {
       </div>
     )
   }
-
+console.log('in Dashboard User:', user)
   if (!user) {
     return null // Will redirect to signin
   }
